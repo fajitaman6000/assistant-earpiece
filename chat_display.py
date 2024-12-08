@@ -1,9 +1,3 @@
-################################################################
-# COMPLETELY REPLACE EVERYTHING IN chat_display.py WITH THIS CODE #
-# DELETE ALL CURRENT CONTENTS OF chat_display.py                 #
-# PASTE EVERYTHING BETWEEN THESE COMMENT BLOCKS                  #
-################################################################
-
 import tkinter as tk
 from tkinter import ttk
 from editable_message import EditableMessage
@@ -16,7 +10,7 @@ class ContextScrollCanvas(tk.Canvas):
         self._width = width
         # Softer colors for better visual comfort
         self.thumb_color = 'gray75'
-        self.out_of_context_color = '#ffcdd2'  # Lighter, more pastel red
+        self.out_of_context_color = '#a3434d'  # Lighter, more pastel red
         self.in_context_color = 'gray85'
         self.bind('<Configure>', self._on_configure)
         
@@ -185,8 +179,3 @@ class EditableChatDisplay(ttk.Frame):
         self.messages = []
         self.canvas.yview_moveto(0.0)
         self.scrollbar_canvas.set(0, 1)
-
-################################################################
-# END OF COMPLETE REPLACEMENT FOR chat_display.py                #
-# MAKE SURE EVERYTHING ABOVE IS COPIED                          #
-################################################################
