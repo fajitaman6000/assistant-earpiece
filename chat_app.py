@@ -20,7 +20,14 @@ class ClaudeChatApp:
         self.full_history = []
         
         self.create_widgets()
-        
+
+    def get_context_size(self):
+        """Helper method to safely get current context size"""
+        try:
+            return max(0, int(self.context_size_var.get()))
+        except (ValueError, AttributeError):
+            return 10  # default value
+
     def load_api_key(self):
         """Load API key from file or create the file if it doesn't exist."""
         try:
@@ -116,7 +123,11 @@ class ClaudeChatApp:
         self.new_chat_button.pack(side=tk.RIGHT, padx=5)
         
         # Chat display area - using new EditableChatDisplay
-        self.chat_display = EditableChatDisplay(self.root, on_message_edit=self.handle_message_edit)
+        self.chat_display = EditableChatDisplay(
+            self.root, 
+            get_context_size=self.get_context_size,  # Pass the getter method
+            on_message_edit=self.handle_message_edit
+        )
         self.chat_display.pack(padx=10, pady=5, fill=tk.BOTH, expand=True)
         
         self.input_frame = ttk.Frame(self.root)
@@ -210,7 +221,8 @@ class ClaudeChatApp:
     def update_context_size(self):
         try:
             self.context_size = max(0, int(self.context_size_var.get()))
-            self.refresh_display()
+            # Add this line to refresh context indicators when context size changes
+            self.chat_display.refresh_context_indicators()
         except ValueError:
             self.full_history.append({"role": "system", "content": "Error: Invalid context size value"})
             self.refresh_display()

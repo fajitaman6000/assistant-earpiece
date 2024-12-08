@@ -3,9 +3,10 @@ from tkinter import ttk
 from editable_message import EditableMessage
 
 class EditableChatDisplay(ttk.Frame):
-    def __init__(self, parent, on_message_edit=None):
+    def __init__(self, parent, get_context_size, on_message_edit=None):
         super().__init__(parent)
         self.on_message_edit = on_message_edit
+        self.get_context_size = get_context_size  # Store the getter method
         self.messages = []
         
         self.pack_propagate(False)
@@ -41,16 +42,58 @@ class EditableChatDisplay(ttk.Frame):
         self.canvas.bind_all("<MouseWheel>", _on_mousewheel)
         
     def add_message(self, message, role):
+        """Add a new message to the display"""
+        total_messages = len(self.messages)
+        context_size = self.get_context_size()
+        
+        # Calculate if message is in context window
+        # New messages are always in context
+        in_context = True if total_messages < context_size else False
+        
         msg_widget = EditableMessage(
             self.scrollable_frame,
             message["content"],
             role,
+            in_context=in_context,
             on_edit=lambda content: self._handle_edit(len(self.messages), content)
         )
         msg_widget.pack(fill=tk.X, padx=5, pady=2)
         self.messages.append(msg_widget)
         self.canvas.update_idletasks()
         self.canvas.yview_moveto(1.0)
+
+    def refresh_context_indicators(self):
+        """Refresh which messages show context indicators"""
+        total_messages = len(self.messages)
+        context_size = self.get_context_size()
+        
+        # Store current content and state
+        saved_messages = []
+        for msg in self.messages:
+            saved_messages.append({
+                'content': msg.get_content(),
+                'role': msg.role
+            })
+            
+        # Clear existing widgets
+        for widget in self.scrollable_frame.winfo_children():
+            widget.destroy()
+            
+        # Rebuild messages with updated context status
+        self.messages = []
+        for i, saved_msg in enumerate(saved_messages):
+            # Messages within the last context_size messages are in context
+            in_context = i >= (total_messages - context_size)
+            
+            msg_widget = EditableMessage(
+                self.scrollable_frame,
+                saved_msg['content'],
+                saved_msg['role'],
+                in_context=in_context,
+                on_edit=lambda content, idx=i: self._handle_edit(idx, content)
+            )
+            msg_widget.pack(fill=tk.X, padx=5, pady=2)
+            self.messages.append(msg_widget)
         
     def _handle_edit(self, index, new_content):
         if self.on_message_edit:
