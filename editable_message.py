@@ -122,7 +122,38 @@ class EditableMessage(ttk.Frame):
     def adjust_text_height(self):
         num_lines = int(self.text_widget.index('end-1c').split('.')[0])
         self.text_widget.configure(height=max(4, min(num_lines, 20)))
+
+    def update_context_status(self, in_context):
+        """Update the context status without rebuilding the widget"""
+        if self.in_context != in_context:
+            self.in_context = in_context
             
+            # Get system's default background color
+            default_bg = self.winfo_toplevel().cget('bg')
+            header_bg = '#ffebee' if not in_context else default_bg
+            
+            # Update header frame background
+            self.header_frame.configure(bg=header_bg)
+            self.role_label.configure(bg=header_bg)
+            
+            # Update context indicator
+            if in_context:
+                # Remove context indicator if it exists
+                if hasattr(self, 'context_label'):
+                    self.context_label.destroy()
+                    delattr(self, 'context_label')
+            else:
+                # Add context indicator if it doesn't exist
+                if not hasattr(self, 'context_label'):
+                    self.context_label = tk.Label(
+                        self.header_frame,
+                        text="OUT OF CONTEXT WINDOW",
+                        fg="#d32f2f",
+                        bg=header_bg,
+                        font=("TkDefaultFont", 9, "bold")
+                    )
+                    self.context_label.pack(side=tk.RIGHT)
+
     def get_content(self):
         """Get current message content"""
         return self.content

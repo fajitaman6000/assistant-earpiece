@@ -65,38 +65,18 @@ class EditableChatDisplay(ttk.Frame):
         self.canvas.yview_moveto(1.0)
 
     def refresh_context_indicators(self):
-        """Refresh which messages show context indicators"""
+        """Refresh which messages show context indicators without rebuilding widgets"""
         total_messages = len(self.messages)
         context_size = self.get_context_size()
         
-        # Store current content and state
-        saved_messages = []
-        for msg in self.messages:
-            saved_messages.append({
-                'content': msg.get_content(),
-                'role': msg.role
-            })
-            
-        # Clear existing widgets
-        for widget in self.scrollable_frame.winfo_children():
-            widget.destroy()
-            
-        # Rebuild messages with updated context status
-        self.messages = []
-        for i in range(len(saved_messages)):
-            saved_msg = saved_messages[i]
-            # Last context_size messages should be in context
+        # Update each existing message's context status
+        for i, msg_widget in enumerate(self.messages):
+            # Calculate if message should be in context
             in_context = i >= (total_messages - context_size)
             
-            msg_widget = EditableMessage(
-                self.scrollable_frame,
-                saved_msg['content'],
-                saved_msg['role'],
-                in_context=in_context,
-                on_edit=lambda content, idx=i: self._handle_edit(idx, content)
-            )
-            msg_widget.pack(fill=tk.X, padx=5, pady=2)
-            self.messages.append(msg_widget)
+            # Only update if context status has changed
+            if msg_widget.in_context != in_context:
+                msg_widget.update_context_status(in_context)
         
     def _handle_edit(self, index, new_content):
         if self.on_message_edit:
