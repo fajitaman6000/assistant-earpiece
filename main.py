@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import scrolledtext, ttk, filedialog, Text
-import anthropic
+import anthropic # type: ignore
 import os
 from collections import deque
 import json
@@ -200,15 +200,49 @@ class ClaudeChatApp:
         self.root.title("Claude Chat Interface")
         self.root.geometry("750x600")
         
-        self.client = anthropic.Anthropic(
-            api_key="###########"
-        )
+        # Try to initialize the API client
+        api_key = self.load_api_key()
+        if api_key:
+            self.client = anthropic.Anthropic(api_key=api_key)
+        else:
+            self.client = None
+            # Disable the send button if no valid API key
+            if hasattr(self, 'send_button'):
+                self.send_button.configure(state='disabled')
         
         self.context_size = 10
         self.api_context = []
         self.full_history = []
         
         self.create_widgets()
+
+    def load_api_key(self):
+        """Load API key from file or create the file if it doesn't exist."""
+        try:
+            # Try to read the API key
+            with open('api_key.txt', 'r') as f:
+                api_key = f.read().strip()
+                
+            # Check if the file is empty
+            if not api_key:
+                raise FileNotFoundError()
+                
+            return api_key
+            
+        except FileNotFoundError:
+            # Create the file if it doesn't exist
+            with open('api_key.txt', 'w') as f:
+                pass  # Create empty file
+                
+            # Add a system message to the history about needing an API key
+            if not hasattr(self, 'full_history'):
+                self.full_history = []
+            self.full_history.append({
+                "role": "system",
+                "content": "Anthropic API key needed! Paste your key into api_key.txt in the same directory as this program, or generate one first at https://console.anthropic.com/dashboard"
+            })
+            
+            return None
 
     def handle_message_edit(self, index, new_content):
         # Update the content in full_history
@@ -398,13 +432,22 @@ class ClaudeChatApp:
         return context_messages
     
     def send_message(self):
-        user_message = self.message_input.get().strip()
-        if not user_message:
+        # Check if we have a valid client
+        if not self.client:
+            self.full_history.append({
+                "role": "system",
+                "content": "Cannot send message: No valid API key found. Please add your API key to api_key.txt"
+            })
+            self.refresh_display()
+            return
+            
+        user_msg_content = self.message_input.get().strip()
+        if not user_msg_content:
             return
             
         self.message_input.delete(0, tk.END)
         
-        user_msg = {"role": "user", "content": user_message}
+        user_msg = {"role": "user", "content": user_msg_content}
         self.full_history.append(user_msg)
         
         try:
@@ -477,7 +520,7 @@ class ClaudeChatApp:
         # Clear system message
         self.system_input.delete("1.0", tk.END)
         # Reset settings to defaults
-        self.temperature_var.set("0.7")
+        self.temperature_var.set("1.0")
         self.tokens_var.set("1024")
         self.context_size_var.set("10")
         self.context_size = 10
