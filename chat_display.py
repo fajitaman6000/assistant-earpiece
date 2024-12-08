@@ -47,8 +47,10 @@ class EditableChatDisplay(ttk.Frame):
         context_size = self.get_context_size()
         
         # Calculate if message is in context window
-        # New messages are always in context
-        in_context = True if total_messages < context_size else False
+        # Last context_size messages should be in context
+        # i.e., if we have 5 messages and context size is 3,
+        # messages at indices 2,3,4 should be in context
+        in_context = total_messages >= (len(self.messages) - context_size)
         
         msg_widget = EditableMessage(
             self.scrollable_frame,
@@ -81,8 +83,9 @@ class EditableChatDisplay(ttk.Frame):
             
         # Rebuild messages with updated context status
         self.messages = []
-        for i, saved_msg in enumerate(saved_messages):
-            # Messages within the last context_size messages are in context
+        for i in range(len(saved_messages)):
+            saved_msg = saved_messages[i]
+            # Last context_size messages should be in context
             in_context = i >= (total_messages - context_size)
             
             msg_widget = EditableMessage(

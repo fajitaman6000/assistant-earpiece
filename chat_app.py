@@ -322,16 +322,30 @@ class ClaudeChatApp:
         return str(response)
     
     def refresh_display(self):
+        """Refresh the chat display with current messages and context indicators"""
         # If this is the first refresh, populate the display
         if len(self.chat_display.messages) == 0:
-            for msg in self.full_history:
+            total_messages = len(self.full_history)
+            context_size = self.context_size  # Get current context size
+            
+            for i, msg in enumerate(self.full_history):
+                # Calculate if message should be in context
+                # Last context_size messages should be in context
+                in_context = i >= (total_messages - context_size)
                 self.chat_display.add_message(msg, msg["role"])
-        # Otherwise, just add the new message
+                
+            # Force a refresh of context indicators
+            self.chat_display.refresh_context_indicators()
+            
+        # Otherwise, just add any new messages
         elif len(self.full_history) > len(self.chat_display.messages):
             # Get the new messages
             new_messages = self.full_history[len(self.chat_display.messages):]
             for msg in new_messages:
                 self.chat_display.add_message(msg, msg["role"])
+            
+            # Refresh context indicators to ensure proper display
+            self.chat_display.refresh_context_indicators()
 
     def reset_new_chat_button(self):
         """Reset the new chat button to its default state"""
