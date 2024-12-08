@@ -1,10 +1,3 @@
-# ================================================================
-# === DELETE EVERYTHING IN multiline_input.py =====================
-# === PASTE EVERYTHING BETWEEN THESE COMMENT BLOCKS ==============
-# === THIS IS THE COMPLETE NEW FILE CONTENTS ====================
-# === FILE: multiline_input.py (ENTIRE FILE) ====================
-# ================================================================
-
 import tkinter as tk
 from tkinter import ttk
 
@@ -101,8 +94,3 @@ class MultilineInput(ttk.Frame):
         if sequence in ["<Return>", "<Shift-Return>", "<KP_Enter>", "<Shift-KP_Enter>"]:
             return
         self.text.bind(sequence, func, add)
-
-# ================================================================
-# === END OF multiline_input.py =================================
-# === NO OTHER CODE SHOULD BE IN THIS FILE =====================
-# ================================================================

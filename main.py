@@ -1,7 +1,3 @@
-# ============================================================
-# === REPLACE THE ENTIRE CONTENTS OF main.py WITH THIS CODE ===
-# === MAKE SURE TO PUT THIS IN main.py, NOT ANY OTHER FILE ====
-# ============================================================
 
 import tkinter as tk
 from chat_app import ClaudeChatApp
