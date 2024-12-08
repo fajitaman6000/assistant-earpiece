@@ -6,32 +6,42 @@ class EditableChatDisplay(ttk.Frame):
     def __init__(self, parent, get_context_size, on_message_edit=None):
         super().__init__(parent)
         self.on_message_edit = on_message_edit
-        self.get_context_size = get_context_size  # Store the getter method
+        self.get_context_size = get_context_size
         self.messages = []
         
-        self.pack_propagate(False)
-        
-        self.canvas = tk.Canvas(self, height=400)
+        # Create scrollable area
+        self.canvas = tk.Canvas(self)
         self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.scrollable_frame = ttk.Frame(self.canvas)
         
+        # Configure scrolling behavior
         self.scrollable_frame.bind(
             "<Configure>",
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
         
-        self.canvas_frame = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw", width=self.canvas.winfo_width())
+        # Create window in canvas
+        self.canvas_frame = self.canvas.create_window(
+            (0, 0),
+            window=self.scrollable_frame,
+            anchor="nw"
+        )
         
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
+        # Configure canvas scrolling
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
         
+        # Pack elements - NOTE: Order is important!
+        self.scrollbar.pack(side="right", fill="y")  # Pack scrollbar first
+        self.canvas.pack(side="left", fill="both", expand=True)  # Then canvas
+        
+        # Bind events
         self.bind("<Configure>", self._on_frame_configure)
         self.canvas.bind("<Configure>", self._on_canvas_configure)
-        
         self.bind_mouse_wheel()
         
     def _on_frame_configure(self, event=None):
-        self.canvas.configure(width=self.winfo_width()-self.scrollbar.winfo_width())
+        width = self.winfo_width() - self.scrollbar.winfo_width()
+        self.canvas.configure(width=width)
         
     def _on_canvas_configure(self, event):
         self.canvas.itemconfig(self.canvas_frame, width=event.width)
@@ -45,11 +55,6 @@ class EditableChatDisplay(ttk.Frame):
         """Add a new message to the display"""
         total_messages = len(self.messages)
         context_size = self.get_context_size()
-        
-        # Calculate if message is in context window
-        # Last context_size messages should be in context
-        # i.e., if we have 5 messages and context size is 3,
-        # messages at indices 2,3,4 should be in context
         in_context = total_messages >= (len(self.messages) - context_size)
         
         msg_widget = EditableMessage(
@@ -63,26 +68,24 @@ class EditableChatDisplay(ttk.Frame):
         self.messages.append(msg_widget)
         self.canvas.update_idletasks()
         self.canvas.yview_moveto(1.0)
-
+        
     def refresh_context_indicators(self):
-        """Refresh which messages show context indicators without rebuilding widgets"""
+        """Refresh which messages show context indicators"""
         total_messages = len(self.messages)
         context_size = self.get_context_size()
         
-        # Update each existing message's context status
         for i, msg_widget in enumerate(self.messages):
-            # Calculate if message should be in context
             in_context = i >= (total_messages - context_size)
-            
-            # Only update if context status has changed
             if msg_widget.in_context != in_context:
                 msg_widget.update_context_status(in_context)
-        
+                
     def _handle_edit(self, index, new_content):
+        """Handle message editing"""
         if self.on_message_edit:
             self.on_message_edit(index, new_content)
             
     def clear(self):
+        """Clear all messages"""
         for widget in self.scrollable_frame.winfo_children():
             widget.destroy()
         self.messages = []

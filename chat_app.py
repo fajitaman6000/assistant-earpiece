@@ -122,13 +122,19 @@ class ClaudeChatApp:
         self.new_chat_button = ttk.Button(settings_frame, text="New Chat", command=self.new_chat)
         self.new_chat_button.pack(side=tk.RIGHT, padx=5)
         
-        # Chat display area - using new EditableChatDisplay
+        # Chat display area
+        # Create a container frame for fixed height
+        self.chat_container = ttk.Frame(self.root, height=400)
+        self.chat_container.pack(padx=10, pady=5, fill=tk.BOTH, expand=True)
+        self.chat_container.pack_propagate(False)  # Prevent size changes
+        
+        # Create the chat display inside the container
         self.chat_display = EditableChatDisplay(
-            self.root, 
-            get_context_size=self.get_context_size,  # Pass the getter method
+            self.chat_container,
+            get_context_size=self.get_context_size,
             on_message_edit=self.handle_message_edit
         )
-        self.chat_display.pack(padx=10, pady=5, fill=tk.BOTH, expand=True)
+        self.chat_display.pack(fill=tk.BOTH, expand=True)
         
         self.input_frame = ttk.Frame(self.root)
         self.input_frame.pack(padx=10, pady=5, fill=tk.X)
