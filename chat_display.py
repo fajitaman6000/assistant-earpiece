@@ -57,11 +57,6 @@ class ContextScrollCanvas(tk.Canvas):
     def _on_configure(self, event):
         self._width = event.width
 
-################################################################
-# NOTE: THE REST OF THE FILE REMAINS EXACTLY THE SAME AS BEFORE  #
-# CONTINUING WITH EditableChatDisplay CLASS...                   #
-################################################################
-
 class EditableChatDisplay(ttk.Frame):
     def __init__(self, parent, get_context_size, on_message_edit=None):
         super().__init__(parent)
