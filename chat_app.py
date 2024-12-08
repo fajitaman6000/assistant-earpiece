@@ -4,6 +4,7 @@ import anthropic # type: ignore
 import json
 import os
 from chat_display import EditableChatDisplay
+from multiline_input import MultilineInput
 
 class ClaudeChatApp:
     def __init__(self, root):
@@ -118,11 +119,16 @@ class ClaudeChatApp:
         self.chat_display = EditableChatDisplay(self.root, on_message_edit=self.handle_message_edit)
         self.chat_display.pack(padx=10, pady=5, fill=tk.BOTH, expand=True)
         
-        # Input area
         self.input_frame = ttk.Frame(self.root)
         self.input_frame.pack(padx=10, pady=5, fill=tk.X)
         
-        self.message_input = ttk.Entry(self.input_frame)
+        # Using MultilineInput with submit callback
+        self.message_input = MultilineInput(
+            self.input_frame, 
+            on_submit=self.send_message,
+            min_height=30, 
+            max_height=150
+        )
         self.message_input.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
         self.send_button = ttk.Button(self.input_frame, text="Send", command=self.send_message)
@@ -134,8 +140,6 @@ class ClaudeChatApp:
         
         self.system_input = scrolledtext.ScrolledText(system_frame, wrap=tk.WORD, height=5)
         self.system_input.pack(padx=5, pady=10, fill=tk.X)
-        
-        self.message_input.bind('<Return>', lambda e: self.send_message())
 
     def save_conversation(self):
         file_path = filedialog.asksaveasfilename(
@@ -251,7 +255,8 @@ class ClaudeChatApp:
         if not user_msg_content:
             return
             
-        self.message_input.delete(0, tk.END)
+        # Clear input AFTER getting content
+        self.message_input.delete()
         
         user_msg = {"role": "user", "content": user_msg_content}
         self.full_history.append(user_msg)
