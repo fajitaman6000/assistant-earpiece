@@ -1,3 +1,9 @@
+############################################################
+# COMPLETELY REPLACE THE ENTIRE CONTENTS OF editable_message.py
+# DELETE EVERYTHING IN editable_message.py AND PASTE THIS CODE
+# THIS IS A COMPLETE FILE REPLACEMENT
+############################################################
+
 import tkinter as tk
 from tkinter import ttk, Text
 
@@ -19,25 +25,31 @@ class EditableMessage(ttk.Frame):
         self.setup_widgets()
         
     def setup_widgets(self):
-        # Header frame for role and context indicator
-        self.header_frame = ttk.Frame(self)
+        # Get system's default background color for the frame
+        default_bg = self.winfo_toplevel().cget('bg')
+        header_bg = '#ffebee' if not self.in_context else default_bg
+        
+        # Header frame - using tk.Frame instead of ttk.Frame for better background control
+        self.header_frame = tk.Frame(self, bg=header_bg)
         self.header_frame.pack(fill=tk.X, padx=5, pady=(5,0))
         
         # Role label (You/Claude/System)
         role_display = "You" if self.role == "user" else "Claude" if self.role == "assistant" else "System"
-        self.role_label = ttk.Label(
+        self.role_label = tk.Label(
             self.header_frame,
             text=role_display,
-            foreground=self.role_colors[self.role][0]
+            fg=self.role_colors[self.role][0],
+            bg=header_bg
         )
         self.role_label.pack(side=tk.LEFT)
         
         # Context indicator (if out of context)
         if not self.in_context:
-            self.context_label = ttk.Label(
+            self.context_label = tk.Label(
                 self.header_frame,
                 text="OUT OF CONTEXT WINDOW",
-                foreground="#d32f2f",
+                fg="#d32f2f",
+                bg=header_bg,
                 font=("TkDefaultFont", 9, "bold")
             )
             self.context_label.pack(side=tk.RIGHT)
@@ -114,3 +126,7 @@ class EditableMessage(ttk.Frame):
     def get_content(self):
         """Get current message content"""
         return self.content
+
+############################################################
+# END OF FILE - MAKE SURE EVERYTHING ABOVE IS COPIED
+############################################################
