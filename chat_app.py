@@ -316,21 +316,49 @@ class ClaudeChatApp:
             for msg in new_messages:
                 self.chat_display.add_message(msg, msg["role"])
 
+    def reset_new_chat_button(self):
+        """Reset the new chat button to its default state"""
+        self.new_chat_button.configure(text="New Chat", style="TButton")
+        self.confirm_new_chat = False
+
     def new_chat(self):
-        # Clear chat history
-        self.full_history = []
-        # Clear API context
-        self.api_context = []
-        # Reset window title
-        self.root.title("Claude Chat Interface")
-        # Clear system message
-        self.system_input.delete("1.0", tk.END)
-        # Reset settings to defaults
-        self.temperature_var.set("1.0")
-        self.tokens_var.set("1024")
-        self.context_size_var.set("10")
-        self.context_size = 10
-        # Clear the chat display
-        self.chat_display.clear()  # This now also resets scroll position
-        # Refresh display to ensure everything is clean
-        self.refresh_display()
+        if not hasattr(self, 'confirm_new_chat'):
+            self.confirm_new_chat = False
+            
+        if not self.confirm_new_chat:
+            # First click - show confirmation state
+            self.confirm_new_chat = True
+            
+            # Create a custom style for the red button
+            style = ttk.Style()
+            style.configure('Red.TButton', background='red')
+            
+            # Change button appearance
+            self.new_chat_button.configure(text="Confirm", style="Red.TButton")
+            
+            # Schedule reset after 2 seconds
+            self.root.after(2000, self.reset_new_chat_button)
+            
+        else:
+            # Second click - perform new chat operations
+            self.confirm_new_chat = False
+            
+            # Clear chat history
+            self.full_history = []
+            # Clear API context
+            self.api_context = []
+            # Reset window title
+            self.root.title("Claude Chat Interface")
+            # Clear system message
+            self.system_input.delete("1.0", tk.END)
+            # Reset settings to defaults
+            self.temperature_var.set("1.0")
+            self.tokens_var.set("1024")
+            self.context_size_var.set("10")
+            self.context_size = 10
+            # Clear the chat display
+            self.chat_display.clear()
+            # Reset button appearance
+            self.reset_new_chat_button()
+            # Refresh display to ensure everything is clean
+            self.refresh_display()
