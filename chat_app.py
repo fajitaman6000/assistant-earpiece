@@ -129,11 +129,11 @@ class ClaudeChatApp:
         self.send_button.pack(side=tk.RIGHT, padx=(5, 0))
         
         # System message area
-        system_frame = ttk.LabelFrame(self.root, text="System Message")
-        system_frame.pack(padx=10, pady=5, fill=tk.X)
+        system_frame = ttk.LabelFrame(self.root, text="Persistent Context/Instructions")
+        system_frame.pack(padx=10, pady=3, fill=tk.X)
         
-        self.system_input = scrolledtext.ScrolledText(system_frame, wrap=tk.WORD, height=3)
-        self.system_input.pack(padx=5, pady=5, fill=tk.X)
+        self.system_input = scrolledtext.ScrolledText(system_frame, wrap=tk.WORD, height=5)
+        self.system_input.pack(padx=5, pady=10, fill=tk.X)
         
         self.message_input.bind('<Return>', lambda e: self.send_message())
 
@@ -175,6 +175,8 @@ class ClaudeChatApp:
         )
         if file_path:
             try:
+                self.new_chat()
+
                 with open(file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     self.full_history = data["history"]
