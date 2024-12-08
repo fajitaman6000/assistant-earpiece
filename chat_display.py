@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from message_widget import EditableMessage
+from editable_message import EditableMessage
 
 class EditableChatDisplay(ttk.Frame):
     def __init__(self, parent, on_message_edit=None):

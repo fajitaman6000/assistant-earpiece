@@ -10,9 +10,9 @@ class EditableMessage(ttk.Frame):
         self.is_editing = False
         
         self.role_colors = {
-            "user": ("#0056b3", "#e6f3ff"),
-            "assistant": ("#2e7d32", "#f1f8e9"),
-            "system": ("#d32f2f", "#ffebee")
+            "user": ("#0056b3", "#e6f3ff"),      # Blue: text color, background
+            "assistant": ("#cc7000", "#fff5e6"),  # Orange: text color, background
+            "system": ("#d32f2f", "#ffebee")      # Red: text color, background
         }
         
         self.setup_widgets()
@@ -28,13 +28,18 @@ class EditableMessage(ttk.Frame):
         
         self.content_frame = ttk.Frame(self)
         self.content_frame.pack(fill=tk.X, padx=5, pady=5)
-        self.content_frame.configure(style='message.TFrame')
+        
+        # Create a unique style name for each role
+        style_name = f'message.{self.role}.TFrame'
         
         style = ttk.Style()
         style.configure(
-            'message.TFrame',
+            style_name,
             background=self.role_colors[self.role][1]
         )
+        
+        # Apply the role-specific style
+        self.content_frame.configure(style=style_name)
         
         self.message_label = ttk.Label(
             self.content_frame,
