@@ -16,6 +16,10 @@ class ClaudeChatApp:
         api_key = self.load_api_key()
         self.client = anthropic.Anthropic(api_key=api_key) if api_key else None
         
+        # Initialize PDF tracking as lists/dicts instead of single values
+        self.pdf_files = {}  # Dictionary to store {filename: base64_data}
+        self.selected_pdfs = []  # List to store selected PDF paths in order
+        
         self.context_size = 10
         self.api_context = []
         self.full_history = []
@@ -24,26 +28,38 @@ class ClaudeChatApp:
         self.create_pdf_frame()  # Add this line after create_widgets()
 
     def create_pdf_frame(self):
-        """Create frame for PDF selection controls with centered filename"""
+        """Create frame for PDF selection controls with list of files"""
         # Create main frame
-        pdf_frame = ttk.LabelFrame(self.root, text="PDF Document")
+        pdf_frame = ttk.LabelFrame(self.root, text="PDF Documents")
         pdf_frame.pack(padx=10, pady=5, fill=tk.X)
         
-        # Left side - Include PDF button
-        self.pdf_button = ttk.Button(pdf_frame, text="Include PDF", command=self.select_pdf)
-        self.pdf_button.pack(side=tk.LEFT, padx=5, pady=5)
+        # Button frame for controls
+        button_frame = ttk.Frame(pdf_frame)
+        button_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
         
-        # Right side - Clear button
-        self.clear_pdf_button = ttk.Button(pdf_frame, text="Clear Current File", command=self.clear_pdf)
-        self.clear_pdf_button.pack(side=tk.RIGHT, padx=5, pady=5)
+        # Add PDF button
+        self.pdf_button = ttk.Button(button_frame, text="Add PDF", command=self.select_pdf)
+        self.pdf_button.pack(side=tk.LEFT, padx=5)
         
-        # Center - Filename label (pack after buttons to fill remaining space)
-        self.pdf_label = ttk.Label(pdf_frame, text="Current File: None", anchor="center")
-        self.pdf_label.pack(side=tk.LEFT, padx=5, pady=5, fill=tk.X, expand=True)
+        # Clear All button
+        self.clear_pdf_button = ttk.Button(button_frame, text="Clear All", command=self.clear_all_pdfs)
+        self.clear_pdf_button.pack(side=tk.RIGHT, padx=5)
         
-        # Initialize PDF tracking variables
-        self.current_pdf_path = None
-        self.current_pdf_data = None
+        # Create frame for PDF list
+        list_frame = ttk.Frame(pdf_frame)
+        list_frame.pack(fill=tk.BOTH, padx=5, pady=5)
+        
+        # Scrollable listbox for PDFs
+        self.pdf_listbox = tk.Listbox(list_frame, height=3, selectmode=tk.SINGLE)
+        self.pdf_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Scrollbar for listbox
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.pdf_listbox.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.pdf_listbox.configure(yscrollcommand=scrollbar.set)
+        
+        # Bind right-click to remove individual PDFs
+        self.pdf_listbox.bind('<Button-3>', self.remove_selected_pdf)
 
 
     def select_pdf(self):
@@ -237,9 +253,9 @@ class ClaudeChatApp:
                     "max_tokens": self.tokens_var.get(),
                     "context_size": self.context_size_var.get()
                 },
-                "pdf": {
-                    "path": self.current_pdf_path,
-                    "data": self.current_pdf_data
+                "pdfs": {
+                    "paths": self.selected_pdfs,
+                    "data": self.pdf_files
                 }
             }
             with open(file_path, 'w', encoding='utf-8') as f:
@@ -269,20 +285,20 @@ class ClaudeChatApp:
                         self.update_context_size()
                     
                     # Load PDF data if present
-                    if "pdf" in data and isinstance(data["pdf"], dict):
-                        pdf_path = data["pdf"].get("path")
-                        pdf_data = data["pdf"].get("data")
+                    if "pdfs" in data and isinstance(data["pdfs"], dict):
+                        pdf_paths = data["pdfs"].get("paths", [])
+                        pdf_data = data["pdfs"].get("data", {})
                         
-                        if pdf_path and pdf_data:
-                            if os.path.exists(pdf_path):
-                                self.current_pdf_path = pdf_path
-                                self.current_pdf_data = pdf_data
-                                filename = os.path.basename(pdf_path)
-                                self.pdf_label.configure(text=f"Current: {filename}")
-                            else:
-                                self.current_pdf_path = None
-                                self.current_pdf_data = None
-                                self.pdf_label.configure(text="Current: None")
+                        self.pdf_files.clear()
+                        self.selected_pdfs.clear()
+                        self.pdf_listbox.delete(0, tk.END)
+                        
+                        for path in pdf_paths:
+                            if os.path.exists(path) and path in pdf_data:
+                                self.pdf_files[path] = pdf_data[path]
+                                self.selected_pdfs.append(path)
+                                filename = os.path.basename(path)
+                                self.pdf_listbox.insert(tk.END, filename)
                                 
                 file_name = os.path.basename(file_path)
                 self.root.title(f"Claude - Loaded: {file_name}")
@@ -328,7 +344,7 @@ class ClaudeChatApp:
         return context_messages
     
     def send_message(self):
-        """Handle sending a message to Claude API with proper PDF handling"""
+        """Handle sending a message to Claude API with support for multiple PDFs"""
         if not self.client:
             self.full_history.append({
                 "role": "system",
@@ -351,25 +367,28 @@ class ClaudeChatApp:
             # Get context messages first
             context_messages = self.get_context_messages()
             
-            # Prepare the new user message with PDF if present
-            if self.current_pdf_data:
+            # Prepare the new user message with PDFs if present
+            if self.pdf_files:
+                # Create content list starting with PDF documents
+                content_list = []
+                for pdf_path in self.selected_pdfs:
+                    content_list.append({
+                        "type": "document",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "application/pdf",
+                            "data": self.pdf_files[pdf_path]
+                        },
+                        "cache_control": {"type": "ephemeral"}
+                    })
+                # Add the user's text message
+                content_list.append({
+                    "type": "text",
+                    "text": user_msg_content
+                })
                 new_message = {
                     "role": "user",
-                    "content": [
-                        {
-                            "type": "document",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "application/pdf",
-                                "data": self.current_pdf_data
-                            },
-                            "cache_control": {"type": "ephemeral"}
-                        },
-                        {
-                            "type": "text",
-                            "text": user_msg_content
-                        }
-                    ]
+                    "content": content_list
                 }
             else:
                 new_message = {
@@ -410,6 +429,42 @@ class ClaudeChatApp:
         
         self.refresh_display()
 
+    def select_pdf(self):
+        """Handle PDF file selection"""
+        file_paths = filedialog.askopenfilenames(
+            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
+        )
+        for file_path in file_paths:
+            if file_path and file_path not in self.selected_pdfs:
+                try:
+                    with open(file_path, 'rb') as f:
+                        pdf_data = f.read()
+                        filename = os.path.basename(file_path)
+                        self.pdf_files[file_path] = base64.b64encode(pdf_data).decode('utf-8')
+                        self.selected_pdfs.append(file_path)
+                        self.pdf_listbox.insert(tk.END, filename)
+                except Exception as e:
+                    self.full_history.append({
+                        "role": "system", 
+                        "content": f"Error loading PDF {filename}: {str(e)}"
+                    })
+                    self.refresh_display()
+
+    def clear_all_pdfs(self):
+        """Clear all PDF selections"""
+        self.pdf_files.clear()
+        self.selected_pdfs.clear()
+        self.pdf_listbox.delete(0, tk.END)
+
+    def remove_selected_pdf(self, event):
+        """Remove a single PDF from the list on right-click"""
+        selection = self.pdf_listbox.curselection()
+        if selection:
+            index = selection[0]
+            file_path = self.selected_pdfs[index]
+            del self.pdf_files[file_path]
+            self.selected_pdfs.pop(index)
+            self.pdf_listbox.delete(index)
     
     def format_claude_response(self, response):
         if isinstance(response, str):
@@ -457,16 +512,17 @@ class ClaudeChatApp:
         self.confirm_new_chat = False
 
     def new_chat(self):
+        """Reset the chat interface to its initial state"""
         if not hasattr(self, 'confirm_new_chat'):
             self.confirm_new_chat = False
-            
+                
         if not self.confirm_new_chat:
             self.confirm_new_chat = True
             style = ttk.Style()
             style.configure('Red.TButton', background='red')
             self.new_chat_button.configure(text="Confirm", style="Red.TButton")
             self.root.after(2000, self.reset_new_chat_button)
-            
+                
         else:
             self.confirm_new_chat = False
             self.full_history = []
@@ -477,10 +533,10 @@ class ClaudeChatApp:
             self.tokens_var.set("1024")
             self.context_size_var.set("10")
             self.context_size = 10
-            # Reset PDF selection
-            self.current_pdf_path = None
-            self.current_pdf_data = None
-            self.pdf_label.configure(text="Current: None")
+            # Reset PDF selections
+            self.pdf_files.clear()
+            self.selected_pdfs.clear()
+            self.pdf_listbox.delete(0, tk.END)
             self.chat_display.clear()
             self.reset_new_chat_button()
             self.refresh_display()
