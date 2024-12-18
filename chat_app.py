@@ -5,12 +5,13 @@ import json
 import os
 from chat_display import EditableChatDisplay
 from multiline_input import MultilineInput
+import base64
 
 class ClaudeChatApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Claude Chat Interface")
-        self.root.geometry("750x600")
+        self.root.geometry("750x800")
         
         api_key = self.load_api_key()
         self.client = anthropic.Anthropic(api_key=api_key) if api_key else None
@@ -20,6 +21,44 @@ class ClaudeChatApp:
         self.full_history = []
         
         self.create_widgets()
+        self.create_pdf_frame()  # Add this line after create_widgets()
+
+    def create_pdf_frame(self):
+        """Create frame for PDF selection controls"""
+        pdf_frame = ttk.LabelFrame(self.root, text="PDF Document")
+        pdf_frame.pack(padx=10, pady=5, fill=tk.X)
+        
+        self.pdf_button = ttk.Button(pdf_frame, text="Include PDF", command=self.select_pdf)
+        self.pdf_button.pack(side=tk.LEFT, padx=5, pady=5)
+        
+        self.pdf_label = ttk.Label(pdf_frame, text="Current: None")
+        self.pdf_label.pack(side=tk.LEFT, padx=5, pady=5)
+        
+        self.current_pdf_path = None
+        self.current_pdf_data = None
+
+    def select_pdf(self):
+        """Handle PDF file selection"""
+        file_path = filedialog.askopenfilename(
+            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
+        )
+        if file_path:
+            try:
+                with open(file_path, 'rb') as f:
+                    pdf_data = f.read()
+                    self.current_pdf_path = file_path
+                    self.current_pdf_data = base64.b64encode(pdf_data).decode('utf-8')
+                    filename = os.path.basename(file_path)
+                    self.pdf_label.configure(text=f"Current: {filename}")
+            except Exception as e:
+                self.full_history.append({
+                    "role": "system", 
+                    "content": f"Error loading PDF: {str(e)}"
+                })
+                self.refresh_display()
+                self.current_pdf_path = None
+                self.current_pdf_data = None
+                self.pdf_label.configure(text="Current: None")
 
     def get_context_size(self):
         """Helper method to safely get current context size"""
@@ -164,27 +203,28 @@ class ClaudeChatApp:
             filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
         )
         if file_path:
-            # Create a copy of history with current edited content
             current_history = []
             for i, msg in enumerate(self.full_history):
                 if i < len(self.chat_display.messages):
-                    # Get current edited content for displayed messages
                     current_content = self.chat_display.messages[i].get_content()
                     current_history.append({
                         "role": msg["role"],
                         "content": current_content
                     })
                 else:
-                    # Use original content for any messages not yet displayed
                     current_history.append(msg)
             
             save_data = {
-                "history": current_history,  # Use the updated history with edits
+                "history": current_history,
                 "system_message": self.system_input.get("1.0", tk.END).strip(),
                 "settings": {
                     "temperature": self.temperature_var.get(),
                     "max_tokens": self.tokens_var.get(),
                     "context_size": self.context_size_var.get()
+                },
+                "pdf": {
+                    "path": self.current_pdf_path,
+                    "data": self.current_pdf_data
                 }
             }
             with open(file_path, 'w', encoding='utf-8') as f:
@@ -202,12 +242,10 @@ class ClaudeChatApp:
                     data = json.load(f)
                     self.full_history = data["history"]
                     
-                    # Load system message if present
                     if "system_message" in data:
                         self.system_input.delete("1.0", tk.END)
                         self.system_input.insert("1.0", data["system_message"])
                     
-                    # Load settings if present
                     if "settings" in data:
                         settings = data["settings"]
                         self.temperature_var.set(settings.get("temperature", "0.7"))
@@ -215,7 +253,22 @@ class ClaudeChatApp:
                         self.context_size_var.set(settings.get("context_size", "10"))
                         self.update_context_size()
                     
-                # Update window title with loaded file name
+                    # Load PDF data if present
+                    if "pdf" in data and isinstance(data["pdf"], dict):
+                        pdf_path = data["pdf"].get("path")
+                        pdf_data = data["pdf"].get("data")
+                        
+                        if pdf_path and pdf_data:
+                            if os.path.exists(pdf_path):
+                                self.current_pdf_path = pdf_path
+                                self.current_pdf_data = pdf_data
+                                filename = os.path.basename(pdf_path)
+                                self.pdf_label.configure(text=f"Current: {filename}")
+                            else:
+                                self.current_pdf_path = None
+                                self.current_pdf_data = None
+                                self.pdf_label.configure(text="Current: None")
+                                
                 file_name = os.path.basename(file_path)
                 self.root.title(f"Claude - Loaded: {file_name}")
                     
@@ -260,7 +313,7 @@ class ClaudeChatApp:
         return context_messages
     
     def send_message(self):
-        # Check if we have a valid client
+        """Handle sending a message to Claude API with proper PDF handling"""
         if not self.client:
             self.full_history.append({
                 "role": "system",
@@ -273,31 +326,60 @@ class ClaudeChatApp:
         if not user_msg_content:
             return
             
-        # Clear input AFTER getting content
         self.message_input.delete()
-        
-        user_msg = {"role": "user", "content": user_msg_content}
-        self.full_history.append(user_msg)
         
         try:
             temperature = float(self.temperature_var.get())
             max_tokens = int(self.tokens_var.get())
             system_message = self.system_input.get("1.0", tk.END).strip()
             
-            # Get messages for API call, including any edited content
+            # Get context messages first
             context_messages = self.get_context_messages()
-            if len(context_messages) == 0:
-                context_messages = [user_msg]
             
-            # Make API call with system parameter as a string
+            # Prepare the new user message with PDF if present
+            if self.current_pdf_data:
+                new_message = {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "document",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "application/pdf",
+                                "data": self.current_pdf_data
+                            },
+                            "cache_control": {"type": "ephemeral"}
+                        },
+                        {
+                            "type": "text",
+                            "text": user_msg_content
+                        }
+                    ]
+                }
+            else:
+                new_message = {
+                    "role": "user",
+                    "content": user_msg_content
+                }
+            
+            # Add the new message to context or use it alone if no context
+            messages_for_api = context_messages if context_messages else []
+            messages_for_api.append(new_message)
+            
+            # Store simplified version in history for display
+            self.full_history.append({
+                "role": "user",
+                "content": user_msg_content
+            })
+            
+            # Make API call
             api_params = {
                 "model": "claude-3-5-sonnet-20241022",
                 "max_tokens": max_tokens,
                 "temperature": temperature,
-                "messages": context_messages
+                "messages": messages_for_api
             }
             
-            # Only add system parameter if there's a system message
             if system_message:
                 api_params["system"] = system_message
             
@@ -312,6 +394,7 @@ class ClaudeChatApp:
             self.full_history.append(error_msg)
         
         self.refresh_display()
+
     
     def format_claude_response(self, response):
         if isinstance(response, str):
@@ -363,39 +446,26 @@ class ClaudeChatApp:
             self.confirm_new_chat = False
             
         if not self.confirm_new_chat:
-            # First click - show confirmation state
             self.confirm_new_chat = True
-            
-            # Create a custom style for the red button
             style = ttk.Style()
             style.configure('Red.TButton', background='red')
-            
-            # Change button appearance
             self.new_chat_button.configure(text="Confirm", style="Red.TButton")
-            
-            # Schedule reset after 2 seconds
             self.root.after(2000, self.reset_new_chat_button)
             
         else:
-            # Second click - perform new chat operations
             self.confirm_new_chat = False
-            
-            # Clear chat history
             self.full_history = []
-            # Clear API context
             self.api_context = []
-            # Reset window title
             self.root.title("Claude Chat Interface")
-            # Clear system message
             self.system_input.delete("1.0", tk.END)
-            # Reset settings to defaults
             self.temperature_var.set("1.0")
             self.tokens_var.set("1024")
             self.context_size_var.set("10")
             self.context_size = 10
-            # Clear the chat display
+            # Reset PDF selection
+            self.current_pdf_path = None
+            self.current_pdf_data = None
+            self.pdf_label.configure(text="Current: None")
             self.chat_display.clear()
-            # Reset button appearance
             self.reset_new_chat_button()
-            # Refresh display to ensure everything is clean
             self.refresh_display()
