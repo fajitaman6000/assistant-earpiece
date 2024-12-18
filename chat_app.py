@@ -24,18 +24,27 @@ class ClaudeChatApp:
         self.create_pdf_frame()  # Add this line after create_widgets()
 
     def create_pdf_frame(self):
-        """Create frame for PDF selection controls"""
+        """Create frame for PDF selection controls with centered filename"""
+        # Create main frame
         pdf_frame = ttk.LabelFrame(self.root, text="PDF Document")
         pdf_frame.pack(padx=10, pady=5, fill=tk.X)
         
+        # Left side - Include PDF button
         self.pdf_button = ttk.Button(pdf_frame, text="Include PDF", command=self.select_pdf)
         self.pdf_button.pack(side=tk.LEFT, padx=5, pady=5)
         
-        self.pdf_label = ttk.Label(pdf_frame, text="Current: None")
-        self.pdf_label.pack(side=tk.LEFT, padx=5, pady=5)
+        # Right side - Clear button
+        self.clear_pdf_button = ttk.Button(pdf_frame, text="Clear Current File", command=self.clear_pdf)
+        self.clear_pdf_button.pack(side=tk.RIGHT, padx=5, pady=5)
         
+        # Center - Filename label (pack after buttons to fill remaining space)
+        self.pdf_label = ttk.Label(pdf_frame, text="Current File: None", anchor="center")
+        self.pdf_label.pack(side=tk.LEFT, padx=5, pady=5, fill=tk.X, expand=True)
+        
+        # Initialize PDF tracking variables
         self.current_pdf_path = None
         self.current_pdf_data = None
+
 
     def select_pdf(self):
         """Handle PDF file selection"""
@@ -49,7 +58,7 @@ class ClaudeChatApp:
                     self.current_pdf_path = file_path
                     self.current_pdf_data = base64.b64encode(pdf_data).decode('utf-8')
                     filename = os.path.basename(file_path)
-                    self.pdf_label.configure(text=f"Current: {filename}")
+                    self.pdf_label.configure(text=f"Current File: {filename}")
             except Exception as e:
                 self.full_history.append({
                     "role": "system", 
@@ -59,6 +68,12 @@ class ClaudeChatApp:
                 self.current_pdf_path = None
                 self.current_pdf_data = None
                 self.pdf_label.configure(text="Current: None")
+
+    def clear_pdf(self):
+        """Clear the current PDF selection"""
+        self.current_pdf_path = None
+        self.current_pdf_data = None
+        self.pdf_label.configure(text="Current: None")
 
     def get_context_size(self):
         """Helper method to safely get current context size"""
